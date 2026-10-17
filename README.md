@@ -4,7 +4,7 @@ Función serverless (Vercel + Node.js + TypeScript) para **Voz Segura**, botón 
 para Wear OS. Recibe la ubicación y el audio desde el reloj, avisa a los contactos de confianza por
 Telegram y, en segundo plano, transcribe y resume el audio con IA (Groq).
 
-App Android: [voz-segura-android](https://github.com/MarioZaMu/voz-segura-android)
+App Android: [voz-segura-android](https://github.com/MarioZaMu/VozSegura-android)
 
 ## Endpoints
 
