@@ -6,13 +6,15 @@
   "description": "Serverless backend for Voz Segura: receives alerts, summarizes audio with AI and notifies trusted contacts.",
   "scripts": {
     "dev": "npx vercel dev",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test test/*.test.ts"
   },
   "engines": {
     "node": ">=20"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
+    "tsx": "^4.23.15",
     "typescript": "^7.0.2"
   }
 }
