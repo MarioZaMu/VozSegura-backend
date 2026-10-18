@@ -50,7 +50,7 @@ Write endpoints need `Authorization: Bearer <ALERT_API_TOKEN>`. Ids are UUIDs (v
 | POST | `/api/audio?alertId&index&durationMs` | raw audio (`audio/mp4`, `audio/webm`, `audio/wav`) | Stores the chunk in private Blob, then (waitUntil) Whisper → summary → final message |
 | GET  | `/api/audio?alertId&index` | — | Streams a chunk (contact view) |
 | POST | `/api/stop` | `{ alertId, reason?, totalChunks }` | Closes the alert; the final summary is sent once every announced chunk is processed |
-| GET  | `/api/alert?id` | — | Public contact view data: status, positions, chunks with transcripts, summary |
+| GET  | `/api/alert?id` | — | Public contact view data: owner name + message, status, positions, chunks with transcripts, summary |
 | GET/POST | `/api/device` | `?deviceId` / `{ deviceId, ownerName, message }` | Owner name and personal message shown in alerts |
 | GET  | `/api/contacts?deviceId` | — | Contacts (public view: no chat id / invite code) |
 | POST | `/api/contacts` | `{ deviceId, name }` | New pending contact + `inviteUrl` (max 10) |
@@ -70,7 +70,7 @@ Contacts: `lib/contactModel.ts` (types, validation, bot replies, unit tested),
 Each alert stores its `recipients` at creation, so later location/summary messages go to
 the same chats even if contacts change mid-alert.
 
-Next (phase 9+): contact view in the frontend, cancel / false alarm (phase 10).
+Next: cancel / false alarm (phase 10).
 
 ## Decisions
 

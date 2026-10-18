@@ -2,6 +2,7 @@
 // Public on purpose: the alert id is a random UUID that only reaches the contacts.
 import { isAlertId } from '../lib/alertModel.js'
 import { getAlert, getChunks, getLocations } from '../lib/alertStore.js'
+import { getDevice } from '../lib/contactStore.js'
 import { errorResponse, json, preflight, withCors } from '../lib/http.js'
 
 async function handleGET(request: Request): Promise<Response> {
@@ -10,10 +11,14 @@ async function handleGET(request: Request): Promise<Response> {
 
   const [alert, locations, chunks] = await Promise.all([getAlert(id), getLocations(id), getChunks(id)])
   if (!alert) return errorResponse('Alert not found', 404)
+  // Same name and message the contacts already got in the Telegram alert.
+  const device = alert.deviceId ? await getDevice(alert.deviceId).catch(() => null) : null
 
   return json({
     id: alert.id,
     status: alert.status,
+    ownerName: device?.ownerName ?? '',
+    message: device?.message ?? '',
     startedAt: alert.startedAt,
     stoppedAt: alert.stoppedAt,
     stopReason: alert.stopReason,
