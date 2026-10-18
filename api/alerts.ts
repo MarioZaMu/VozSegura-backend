@@ -1,11 +1,13 @@
 // POST /api/alerts — the alert itself. Sent by the device right after the double tap.
-// Body: { alertId, startedAt?, captureKind?, location? }. Notifies the contacts at once;
-// storage problems never stop the Telegram message.
+// Body: { alertId, deviceId?, startedAt?, captureKind?, location? }. Notifies the device's
+// confirmed contacts at once (fallback chats if it has none); storage problems never stop
+// the Telegram message.
 import { alertLink, formatAlertMessage, isAlertId, newAlertRecord, parseCaptureKind, parseLocation } from '../lib/alertModel.js'
 import { addLocation, claimOnce, createAlert, getAlert, updateAlert } from '../lib/alertStore.js'
-import { frontendUrl } from '../lib/env.js'
+import { confirmedChatIds, getDevice } from '../lib/contactStore.js'
+import { fallbackChatIds, frontendUrl } from '../lib/env.js'
 import { errorResponse, isAuthorized, json, preflight, readJsonBody } from '../lib/http.js'
-import { sendLocationToContacts, sendMessageToContacts } from '../lib/telegram.js'
+import { sendLocationToAll, sendMessageToAll } from '../lib/telegram.js'
 
 export async function POST(request: Request): Promise<Response> {
   if (!isAuthorized(request)) return errorResponse('Unauthorized', 401)
@@ -13,6 +15,7 @@ export async function POST(request: Request): Promise<Response> {
   if (!body || !isAlertId(body.alertId)) return errorResponse('Invalid alertId', 400)
 
   const alertId = body.alertId
+  const deviceId = isAlertId(body.deviceId) ? body.deviceId : null
   const now = Date.now()
   const startedAt = typeof body.startedAt === 'number' && body.startedAt <= now ? body.startedAt : now
   const fix = parseLocation(body.location)
@@ -20,9 +23,22 @@ export async function POST(request: Request): Promise<Response> {
 
   let created = false
   let alreadyNotified = false
+  let recipients = fallbackChatIds()
+  let ownerName = ''
+  let message = ''
   try {
-    created = await createAlert(newAlertRecord(alertId, parseCaptureKind(body.captureKind), startedAt, now))
-    alreadyNotified = !created && (await getAlert(alertId))?.notified === true
+    const existing = await getAlert(alertId)
+    if (existing) {
+      // A retry: keep the recipients chosen the first time.
+      alreadyNotified = existing.notified
+      if (existing.recipients?.length) recipients = existing.recipients
+    } else if (deviceId) {
+      const [contacts, device] = await Promise.all([confirmedChatIds(deviceId), getDevice(deviceId)])
+      if (contacts.length > 0) recipients = contacts
+      ownerName = device?.ownerName ?? ''
+      message = device?.message ?? ''
+    }
+    created = await createAlert(newAlertRecord(alertId, parseCaptureKind(body.captureKind), startedAt, now, deviceId, recipients))
     if (fix) await addLocation(alertId, fix)
   } catch (error) {
     console.error('Alert storage failed, notifying anyway', error)
@@ -30,14 +46,14 @@ export async function POST(request: Request): Promise<Response> {
 
   let notified = alreadyNotified
   if (!alreadyNotified) {
-    notified = (await sendMessageToContacts(formatAlertMessage({ link, startedAt, fix }))) > 0
+    notified = (await sendMessageToAll(recipients, formatAlertMessage({ link, startedAt, fix, ownerName, message }))) > 0
     if (notified) await updateAlert(alertId, { notified: true }).catch(console.error)
   }
   if (fix && (await claimOnce(alertId, 'firstLocation').catch(() => true))) {
-    await sendLocationToContacts(fix)
+    await sendLocationToAll(recipients, fix)
   }
 
-  return json({ alertId, link, notified }, created ? 201 : 200)
+  return json({ alertId, link, notified, recipients: recipients.length }, created ? 201 : 200)
 }
 
 export function OPTIONS(): Response {
