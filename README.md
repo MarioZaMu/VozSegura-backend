@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/MarioZaMu/VozSegura-Frontend/main/public/icon-512.png" alt="Logo de Voz Segura" width="120" />
+</p>
+
 # Voz Segura — Backend
 
 Funciones serverless (Node.js + TypeScript en Vercel) de **Voz Segura**, un botón de
@@ -19,8 +23,7 @@ El frontend (PWA con las vistas Reloj, Configuración y Contacto) está en
 
 ## En línea
 
-- **App (PC o celular):** [voz-segura-frontend.vercel.app](https://voz-segura-frontend.vercel.app) · demo de la vista
-  Contacto: [voz-segura-frontend.vercel.app/alerta/demo](https://voz-segura-frontend.vercel.app/alerta/demo)
+- **App (PC o celular):** [voz-segura-frontend.vercel.app](https://voz-segura-frontend.vercel.app)
 - **API:** [vozsegura-backend.vercel.app/api/health](https://vozsegura-backend.vercel.app/api/health)
 - **Bot de Telegram:** [@VSegurabot](https://t.me/VSegurabot) (los contactos se suscriben
   con el enlace de invitación que genera la app)
