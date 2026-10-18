@@ -6,6 +6,13 @@ aparte, transcribe y resume el audio con IA (Groq).
 
 App Android: [VozSegura-android](https://github.com/MarioZaMu/VozSegura-android)
 
+## Caso de estudio
+
+📄 **[Documento completo (PDF)](docs/Voz-Segura-Caso-de-estudio.pdf)**: problema, usuarios,
+arquitectura, estados de la alerta, diseño de interfaz, uso de IA y sus límites, privacidad,
+accesibilidad, pruebas, limitaciones y guion de la demo. Caso de estudio para la materia
+**Diseño de Interfaces de Software**.
+
 ## Flujo de una alerta
 
 1. `POST /api/alert` — mensaje, hora y ubicación a cada contacto. **Sin IA**: nada puede retrasarlo.
