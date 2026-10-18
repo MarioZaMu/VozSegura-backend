@@ -49,8 +49,9 @@ Write endpoints need `Authorization: Bearer <ALERT_API_TOKEN>`. Ids are UUIDs (v
 | POST | `/api/location` | `{ alertId, location }` | Adds a position; the first one also goes as a Telegram map pin |
 | POST | `/api/audio?alertId&index&durationMs` | raw audio (`audio/mp4`, `audio/webm`, `audio/wav`) | Stores the chunk in private Blob, then (waitUntil) Whisper → summary → final message |
 | GET  | `/api/audio?alertId&index` | — | Streams a chunk (contact view) |
-| POST | `/api/stop` | `{ alertId, reason?, totalChunks }` | Closes the alert; the final summary is sent once every announced chunk is processed |
-| GET  | `/api/alert?id` | — | Public contact view data: owner name + message, status, positions, chunks with transcripts, summary |
+| POST | `/api/stop` | `{ alertId, reason?, totalChunks }` | Closes the alert; the final summary (titled by stop reason) is sent once every announced chunk is processed |
+| POST | `/api/resolve` | `{ alertId, deviceId, resolution: 'safe' \| 'false-alarm' }` | Owner says "estoy bien" / false alarm; only the alert's device (403 otherwise); first answer wins and is sent once to the same contacts |
+| GET  | `/api/alert?id` | — | Public contact view data: owner name + message, status, positions, chunks with transcripts, summary, resolution |
 | GET/POST | `/api/device` | `?deviceId` / `{ deviceId, ownerName, message }` | Owner name and personal message shown in alerts |
 | GET  | `/api/contacts?deviceId` | — | Contacts (public view: no chat id / invite code) |
 | POST | `/api/contacts` | `{ deviceId, name }` | New pending contact + `inviteUrl` (max 10) |

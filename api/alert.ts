@@ -27,6 +27,8 @@ async function handleGET(request: Request): Promise<Response> {
     summary: alert.summary,
     summaryStatus: alert.summaryStatus,
     summaryUpdatedAt: alert.summaryUpdatedAt,
+    resolution: alert.resolution ?? null,
+    resolvedAt: alert.resolvedAt ?? null,
     chunks: chunks.map(({ index, durationMs, transcript, transcriptStatus }) => ({
       index,
       durationMs,
