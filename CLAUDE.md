@@ -76,8 +76,7 @@ Next (phase 9+): contact view in the frontend, per-user contacts via the Telegra
 - **Deploy:** Vercel GitHub integration (push to `main` = production). The Vercel CLI is
   linked (`.vercel/`, git-ignored) and used for env vars and logs
   (`npx vercel inspect <url> --logs`). If npx fails with a `luxon` module error, delete
-  the corrupted `%LOCALAPPDATA%
-pm-cache\_npx\<hash>` folder.
+  the corrupted `%LOCALAPPDATA%\npm-cache\_npx\<hash>` folder.
 - **Env files:** `npx vercel env pull .env.local` brings Redis, Blob store id, URLs and a
   12 h `VERCEL_OIDC_TOKEN`. Secrets are "Sensitive" in Vercel and cannot be pulled, so they
   live in `.env` (loaded after `.env.local`): `TELEGRAM_BOT_TOKEN`, `DEFAULT_CHAT_IDS`,
