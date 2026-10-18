@@ -45,12 +45,18 @@ Write endpoints need `Authorization: Bearer <ALERT_API_TOKEN>`. Ids are UUIDs (v
 | Method | Path | Body / query | Purpose |
 | ------ | ---- | ------------ | ------- |
 | GET  | `/api/health` | — | Health check |
-| POST | `/api/alerts` | `{ alertId, startedAt?, captureKind?, location? }` | Creates the alert (idempotent) and sends the Telegram alert at once; storage failure never blocks the message |
+| POST | `/api/alerts` | `{ alertId, deviceId?, startedAt?, captureKind?, location? }` | Creates the alert (idempotent) and sends the Telegram alert at once to the device's confirmed contacts (fallback `DEFAULT_CHAT_IDS`); storage failure never blocks the message |
 | POST | `/api/location` | `{ alertId, location }` | Adds a position; the first one also goes as a Telegram map pin |
 | POST | `/api/audio?alertId&index&durationMs` | raw audio (`audio/mp4`, `audio/webm`, `audio/wav`) | Stores the chunk in private Blob, then (waitUntil) Whisper → summary → final message |
 | GET  | `/api/audio?alertId&index` | — | Streams a chunk (contact view) |
 | POST | `/api/stop` | `{ alertId, reason?, totalChunks }` | Closes the alert; the final summary is sent once every announced chunk is processed |
 | GET  | `/api/alert?id` | — | Public contact view data: status, positions, chunks with transcripts, summary |
+| GET/POST | `/api/device` | `?deviceId` / `{ deviceId, ownerName, message }` | Owner name and personal message shown in alerts |
+| GET  | `/api/contacts?deviceId` | — | Contacts (public view: no chat id / invite code) |
+| POST | `/api/contacts` | `{ deviceId, name }` | New pending contact + `inviteUrl` (max 10) |
+| PUT  | `/api/contacts` | `{ deviceId, contactId }` | Replaces a contact with a fresh invite link |
+| DELETE | `/api/contacts?deviceId&contactId` | — | Removes a contact |
+| POST | `/api/telegram` | Telegram update | Bot webhook, checked with `X-Telegram-Bot-Api-Secret-Token`; always 200 |
 
 Code: `lib/alertModel.ts` (types, validation, Spanish Telegram text, unit tested),
 `lib/alertStore.ts` (Redis: alert hash `alert:{id}`, `:locations` list, `:chunks` hash,
@@ -58,8 +64,13 @@ Code: `lib/alertModel.ts` (types, validation, Spanish Telegram text, unit tested
 `whisper-large-v3-turbo`, summary `openai/gpt-oss-120b` with a strict prompt that ignores
 Whisper's silence hallucinations like "suscríbete al canal"), `lib/alertProcessing.ts`.
 
-Next (phase 9+): contact view in the frontend, per-user contacts via the Telegram
-`/start` flow (phase 7), cancel / false alarm (phase 10).
+Contacts: `lib/contactModel.ts` (types, validation, bot replies, unit tested),
+`lib/contactStore.ts` (Redis: `device:{id}` hash, `device:{id}:contacts` hash,
+`invite:{code}` with 7-day TTL and single use, `chat:{chatId}` set of devices for `/stop`).
+Each alert stores its `recipients` at creation, so later location/summary messages go to
+the same chats even if contacts change mid-alert.
+
+Next (phase 9+): contact view in the frontend, cancel / false alarm (phase 10).
 
 ## Decisions
 
@@ -85,6 +96,12 @@ Next (phase 9+): contact view in the frontend, per-user contacts via the Telegra
   token. The store's connection does not allow the Development environment and the CLI
   only issues development tokens, so **audio uploads fail locally**; test audio against
   production (or a deployment). Everything else works with `npm run dev`.
-- **Contacts:** `DEFAULT_CHAT_IDS` (comma separated) until phase 7.
+- **Contacts (phase 7):** per device, invited with `t.me/<bot>?start=<code>`. The app
+  generates a random `deviceId` (UUID) and sends it with every request; there are no user
+  accounts. `DEFAULT_CHAT_IDS` stays as fallback for devices without confirmed contacts.
+- **Webhook:** `TELEGRAM_WEBHOOK_SECRET` (Vercel + `.env`), registered once with
+  `npx tsx --env-file=.env scripts/set-webhook.ts` against production. Local testing of
+  the webhook is not possible (Telegram needs a public URL); simulate it by calling the
+  handler with the header.
 - **Token in the app:** `ALERT_API_TOKEN` ships inside the frontend bundle/APK, so it
   only stops casual abuse. Per-device keys are a later improvement.
