@@ -9,6 +9,7 @@ import {
   isAlertId,
   isReadyToFinalize,
   newAlertRecord,
+  parseLanguage,
   orderedTranscript,
   parseChunkIndex,
   parseLocation,
@@ -85,6 +86,21 @@ describe('telegram text', () => {
     expect(formatFinalMessage({ link: 'L', summary: null, hadAudio: false })).toContain('No se pudo grabar audio')
     expect(formatFinalMessage({ link: 'L', summary: 'x', hadAudio: true, stopReason: 'user' })).toContain('se detuvo')
     expect(formatFinalMessage({ link: 'L', summary: 'x', hadAudio: true, stopReason: 'max-duration' })).toContain('5 minutos')
+  })
+
+  it('writes in the owner\'s language', () => {
+    expect(formatAlertMessage({ link: 'L', startedAt: 0, fix: null, ownerName: 'Ana', language: 'en' })).toContain(
+      '<b>Ana</b> raised a silent alert at',
+    )
+    expect(formatFinalMessage({ link: 'L', summary: null, hadAudio: false, language: 'en' })).toContain('No audio could be recorded')
+    expect(formatResolutionMessage({ resolution: 'safe', link: 'L', language: 'en' })).toContain('says they are <b>safe</b>')
+  })
+
+  it('falls back to Spanish for unknown languages', () => {
+    expect(parseLanguage('en')).toBe('en')
+    expect(parseLanguage('fr')).toBe('es')
+    expect(parseLanguage(undefined)).toBe('es')
+    expect(newAlertRecord(ID, 'web', 0, 0).language).toBe('es')
   })
 })
 

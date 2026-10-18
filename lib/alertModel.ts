@@ -9,6 +9,8 @@ export type SummaryStatus = 'waiting' | 'generating' | 'ready' | 'error'
 export type TranscriptStatus = 'pending' | 'done' | 'error'
 /** Set by the owner afterwards: 'safe' = "estoy bien", 'false-alarm' = activated by mistake. */
 export type Resolution = 'safe' | 'false-alarm'
+/** The owner's app language: Telegram messages, transcription hint and AI summary use it. */
+export type Language = 'es' | 'en'
 
 export type AlertRecord = {
   id: string
@@ -34,6 +36,8 @@ export type AlertRecord = {
   /** Missing on alerts created before phase 10 (read as null). */
   resolution?: Resolution | null
   resolvedAt?: number | null
+  /** Missing on alerts created before phase 12 (read as 'es'). */
+  language?: Language
 }
 
 export type ChunkRecord = {
@@ -71,6 +75,11 @@ export function parseResolution(value: unknown): Resolution | null {
   return RESOLUTIONS.includes(value as Resolution) ? (value as Resolution) : null
 }
 
+/** Unknown or missing → Spanish, the original language of the app. */
+export function parseLanguage(value: unknown): Language {
+  return value === 'en' ? 'en' : 'es'
+}
+
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
@@ -101,6 +110,7 @@ export function newAlertRecord(
   now: number,
   deviceId: string | null = null,
   recipients: string[] = [],
+  language: Language = 'es',
 ): AlertRecord {
   return {
     id,
@@ -121,6 +131,7 @@ export function newAlertRecord(
     summaryUpdatedAt: null,
     resolution: null,
     resolvedAt: null,
+    language,
   }
 }
 
@@ -144,14 +155,60 @@ export function isReadyToFinalize(alert: AlertRecord, chunks: ChunkRecord[]): bo
   return processedChunkCount(chunks) >= alert.totalChunks
 }
 
-// ---- Telegram text (Spanish, Telegram HTML parse mode) ----
+// ---- Telegram text (owner's language, Telegram HTML parse mode) ----
+// The frontend's simulated chat (DemoTelegramPreview) repeats these texts: keep them in sync.
 
-const timeFormat = new Intl.DateTimeFormat('es-CO', {
-  hour: '2-digit',
-  minute: '2-digit',
-  hourCycle: 'h23',
-  timeZone: 'America/Bogota',
-})
+const LOCALES: Record<Language, string> = { es: 'es-CO', en: 'en-US' }
+
+const timeFormats: Record<Language, Intl.DateTimeFormat> = {
+  es: new Intl.DateTimeFormat(LOCALES.es, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: 'America/Bogota' }),
+  en: new Intl.DateTimeFormat(LOCALES.en, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: 'America/Bogota' }),
+}
+
+const texts = {
+  es: {
+    someone: 'Una persona que confía en ti',
+    alertTitle: '🚨 <b>Alerta de Voz Segura</b>',
+    raised: (who: string, time: string) => `${who} activó una alerta silenciosa a las ${time}.`,
+    seeLocation: 'Ver ubicación',
+    locationSoon: '📍 La ubicación llegará en unos segundos.',
+    followLive: (link: string) => `🔴 <a href="${link}">Seguir la alerta en vivo</a> (audio y resumen)`,
+    stopLines: {
+      user: '✅ <b>La alerta se detuvo</b> desde el reloj.',
+      'max-duration': '✅ <b>La grabación de la alerta terminó</b> (límite de 5 minutos).',
+      error: '✅ <b>La grabación de la alerta terminó</b> (se interrumpió en el teléfono).',
+    } as Record<StopReason, string>,
+    recordingEnded: '✅ <b>La grabación de la alerta terminó.</b>',
+    summary: '📝 <b>Resumen del audio</b> (generado por IA, puede tener errores):',
+    summaryFailed: '📝 No fue posible generar el resumen del audio. Puedes escucharlo en el enlace.',
+    noAudio: '🎙️ No se pudo grabar audio en esta alerta.',
+    seeAlert: 'Ver la alerta',
+    theOwner: 'La persona que activó la alerta',
+    safe: (who: string) => `💚 ${who} avisó que <b>está bien</b>. Gracias por estar pendiente.`,
+    falseAlarm: (who: string) => `ℹ️ <b>Falsa alarma:</b> ${who} activó la alerta por error. Todo está bien, no hace falta hacer nada.`,
+  },
+  en: {
+    someone: 'Someone who trusts you',
+    alertTitle: '🚨 <b>Voz Segura alert</b>',
+    raised: (who: string, time: string) => `${who} raised a silent alert at ${time}.`,
+    seeLocation: 'See location',
+    locationSoon: '📍 The location will arrive in a few seconds.',
+    followLive: (link: string) => `🔴 <a href="${link}">Follow the alert live</a> (audio and summary)`,
+    stopLines: {
+      user: '✅ <b>The alert was stopped</b> from the watch.',
+      'max-duration': '✅ <b>The alert recording ended</b> (5-minute limit).',
+      error: '✅ <b>The alert recording ended</b> (it was interrupted on the phone).',
+    } as Record<StopReason, string>,
+    recordingEnded: '✅ <b>The alert recording ended.</b>',
+    summary: '📝 <b>Audio summary</b> (AI-generated, may contain mistakes):',
+    summaryFailed: '📝 The audio summary could not be generated. You can listen to it at the link.',
+    noAudio: '🎙️ No audio could be recorded in this alert.',
+    seeAlert: 'See the alert',
+    theOwner: 'The person who raised the alert',
+    safe: (who: string) => `💚 ${who} says they are <b>safe</b>. Thanks for looking out.`,
+    falseAlarm: (who: string) => `ℹ️ <b>False alarm:</b> ${who} raised the alert by mistake. Everything is fine, nothing to do.`,
+  },
+}
 
 export function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -171,25 +228,22 @@ export function formatAlertMessage(options: {
   fix: LocationFix | null
   ownerName?: string
   message?: string
+  language?: Language
 }): string {
-  const who = options.ownerName ? `<b>${escapeHtml(options.ownerName)}</b>` : 'Una persona que confía en ti'
+  const language = options.language ?? 'es'
+  const t = texts[language]
+  const who = options.ownerName ? `<b>${escapeHtml(options.ownerName)}</b>` : t.someone
   const lines = [
-    '🚨 <b>Alerta de Voz Segura</b>',
-    `${who} activó una alerta silenciosa a las ${timeFormat.format(options.startedAt)}.`,
+    t.alertTitle,
+    t.raised(who, timeFormats[language].format(options.startedAt)),
     ...(options.message ? ['', `💬 “${escapeHtml(options.message)}”`] : []),
     '',
     options.fix
-      ? `📍 <a href="${mapsUrl(options.fix)}">Ver ubicación</a> (±${Math.round(options.fix.accuracy)} m)`
-      : '📍 La ubicación llegará en unos segundos.',
-    `🔴 <a href="${options.link}">Seguir la alerta en vivo</a> (audio y resumen)`,
+      ? `📍 <a href="${mapsUrl(options.fix)}">${t.seeLocation}</a> (±${Math.round(options.fix.accuracy)} m)`
+      : t.locationSoon,
+    t.followLive(options.link),
   ]
   return lines.join('\n')
-}
-
-const stopLines: Record<StopReason, string> = {
-  user: '✅ <b>La alerta se detuvo</b> desde el reloj.',
-  'max-duration': '✅ <b>La grabación de la alerta terminó</b> (límite de 5 minutos).',
-  error: '✅ <b>La grabación de la alerta terminó</b> (se interrumpió en el teléfono).',
 }
 
 export function formatFinalMessage(options: {
@@ -197,22 +251,27 @@ export function formatFinalMessage(options: {
   summary: string | null
   hadAudio: boolean
   stopReason?: StopReason | null
+  language?: Language
 }): string {
+  const t = texts[options.language ?? 'es']
   const body = options.summary
-    ? `📝 <b>Resumen del audio</b> (generado por IA, puede tener errores):\n${escapeHtml(options.summary)}`
+    ? `${t.summary}\n${escapeHtml(options.summary)}`
     : options.hadAudio
-      ? '📝 No fue posible generar el resumen del audio. Puedes escucharlo en el enlace.'
-      : '🎙️ No se pudo grabar audio en esta alerta.'
-  const title = options.stopReason ? stopLines[options.stopReason] : '✅ <b>La grabación de la alerta terminó.</b>'
-  return [title, '', body, '', `🔴 <a href="${options.link}">Ver la alerta</a>`].join('\n')
+      ? t.summaryFailed
+      : t.noAudio
+  const title = options.stopReason ? t.stopLines[options.stopReason] : t.recordingEnded
+  return [title, '', body, '', `🔴 <a href="${options.link}">${t.seeAlert}</a>`].join('\n')
 }
 
 /** Sent when the owner marks the alert as "estoy bien" or as a false alarm. */
-export function formatResolutionMessage(options: { resolution: Resolution; ownerName?: string; link: string }): string {
-  const who = options.ownerName ? `<b>${escapeHtml(options.ownerName)}</b>` : 'La persona que activó la alerta'
-  const text =
-    options.resolution === 'safe'
-      ? `💚 ${who} avisó que <b>está bien</b>. Gracias por estar pendiente.`
-      : `ℹ️ <b>Falsa alarma:</b> ${who} activó la alerta por error. Todo está bien, no hace falta hacer nada.`
-  return [text, '', `<a href="${options.link}">Ver la alerta</a>`].join('\n')
+export function formatResolutionMessage(options: {
+  resolution: Resolution
+  ownerName?: string
+  link: string
+  language?: Language
+}): string {
+  const t = texts[options.language ?? 'es']
+  const who = options.ownerName ? `<b>${escapeHtml(options.ownerName)}</b>` : t.theOwner
+  const text = options.resolution === 'safe' ? t.safe(who) : t.falseAlarm(who)
+  return [text, '', `<a href="${options.link}">${t.seeAlert}</a>`].join('\n')
 }
