@@ -36,7 +36,7 @@ npm run dev            # http://localhost:3000/api/health
 ```
 
 ```bash
-npm run build   # verificación de tipos
+npm run typecheck   # verificación de tipos
 npm run lint    # análisis estático con oxlint
 ```
 

@@ -11,7 +11,7 @@ summarizes the audio with AI (Groq).
 - **Language:** all code, comments and commits in English. User-facing text (Telegram
   messages, AI summaries) in Spanish.
 - Work in phases; explain before, report after and wait for approval. Each phase ends
-  with `npm run build` + `npm run lint` clean and several small commits. Never push
+  with `npm run typecheck` + `npm run lint` + `npm test` clean and several small commits. Never push
   unless asked.
 - Commits authored as MarioZaMu only, no `Co-Authored-By` trailers.
 - Secrets (Groq key, Telegram token) only in env variables, never in code or frontend.
@@ -22,7 +22,9 @@ summarizes the audio with AI (Groq).
 ```bash
 npm install
 npm run dev     # local server (scripts/dev-server.ts) at http://localhost:3000, loads .env
-npm run build   # type-check with tsc (Vercel compiles the functions itself)
+npm run typecheck  # tsc only. Deliberately NOT named `build`: with a build script Vercel
+                   # treats the repo as a static site and fails looking for public/
+npm test           # Vitest unit tests
 npm run lint    # oxlint
 ```
 
