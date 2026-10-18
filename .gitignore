@@ -1,0 +1,15 @@
+node_modules
+dist
+*.log
+
+# Environment and deployment
+.env
+.env.*
+!.env.example
+.vercel
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
