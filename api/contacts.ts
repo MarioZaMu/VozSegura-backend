@@ -4,10 +4,10 @@
 import { isAlertId as isUuid } from '../lib/alertModel.js'
 import { cleanText, inviteUrl, MAX_CONTACTS, MAX_NAME_LENGTH, publicContact } from '../lib/contactModel.js'
 import { createContact, getContact, listContacts, removeContact } from '../lib/contactStore.js'
-import { errorResponse, isAuthorized, json, preflight, readJsonBody } from '../lib/http.js'
+import { errorResponse, isAuthorized, json, preflight, readJsonBody, withCors } from '../lib/http.js'
 import { getBotUsername } from '../lib/telegram.js'
 
-export async function GET(request: Request): Promise<Response> {
+async function handleGET(request: Request): Promise<Response> {
   if (!isAuthorized(request)) return errorResponse('Unauthorized', 401)
   const deviceId = new URL(request.url).searchParams.get('deviceId')
   if (!isUuid(deviceId)) return errorResponse('Invalid deviceId', 400)
@@ -15,7 +15,7 @@ export async function GET(request: Request): Promise<Response> {
   return json({ contacts: contacts.map(publicContact) })
 }
 
-export async function POST(request: Request): Promise<Response> {
+async function handlePOST(request: Request): Promise<Response> {
   if (!isAuthorized(request)) return errorResponse('Unauthorized', 401)
   const body = await readJsonBody(request)
   if (!body || !isUuid(body.deviceId)) return errorResponse('Invalid deviceId', 400)
@@ -28,7 +28,7 @@ export async function POST(request: Request): Promise<Response> {
 }
 
 /** A new link for a pending contact (e.g. the first one expired or got lost). */
-export async function PUT(request: Request): Promise<Response> {
+async function handlePUT(request: Request): Promise<Response> {
   if (!isAuthorized(request)) return errorResponse('Unauthorized', 401)
   const body = await readJsonBody(request)
   if (!body || !isUuid(body.deviceId) || !isUuid(body.contactId)) return errorResponse('Invalid ids', 400)
@@ -39,7 +39,7 @@ export async function PUT(request: Request): Promise<Response> {
   return json({ contact: publicContact(contact), inviteUrl: inviteUrl(await getBotUsername(), contact.inviteCode) })
 }
 
-export async function DELETE(request: Request): Promise<Response> {
+async function handleDELETE(request: Request): Promise<Response> {
   if (!isAuthorized(request)) return errorResponse('Unauthorized', 401)
   const url = new URL(request.url)
   const deviceId = url.searchParams.get('deviceId')
@@ -49,6 +49,8 @@ export async function DELETE(request: Request): Promise<Response> {
   return json({ ok: true })
 }
 
-export function OPTIONS(): Response {
-  return preflight()
-}
+export const GET = withCors(handleGET)
+export const POST = withCors(handlePOST)
+export const PUT = withCors(handlePUT)
+export const DELETE = withCors(handleDELETE)
+export const OPTIONS = withCors(preflight)

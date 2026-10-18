@@ -7,7 +7,7 @@ import { waitUntil } from '@vercel/functions'
 import { isAlertId, MAX_AUDIO_BYTES, parseChunkIndex, type ChunkRecord } from '../lib/alertModel.js'
 import { processChunk, readAudio } from '../lib/alertProcessing.js'
 import { getAlert, getChunk, saveChunk } from '../lib/alertStore.js'
-import { corsHeaders, errorResponse, isAuthorized, json, preflight } from '../lib/http.js'
+import { corsHeaders, errorResponse, isAuthorized, json, preflight, withCors } from '../lib/http.js'
 
 const EXTENSIONS: Record<string, string> = {
   'audio/mp4': 'm4a',
@@ -16,7 +16,7 @@ const EXTENSIONS: Record<string, string> = {
   'audio/wav': 'wav', // test clips
 }
 
-export async function POST(request: Request): Promise<Response> {
+async function handlePOST(request: Request): Promise<Response> {
   if (!isAuthorized(request)) return errorResponse('Unauthorized', 401)
   const url = new URL(request.url)
   const alertId = url.searchParams.get('alertId')
@@ -55,7 +55,7 @@ export async function POST(request: Request): Promise<Response> {
   return json({ stored: true }, 201)
 }
 
-export async function GET(request: Request): Promise<Response> {
+async function handleGET(request: Request): Promise<Response> {
   const url = new URL(request.url)
   const alertId = url.searchParams.get('alertId')
   const index = parseChunkIndex(url.searchParams.get('index'))
@@ -69,6 +69,6 @@ export async function GET(request: Request): Promise<Response> {
   })
 }
 
-export function OPTIONS(): Response {
-  return preflight()
-}
+export const POST = withCors(handlePOST)
+export const GET = withCors(handleGET)
+export const OPTIONS = withCors(preflight)

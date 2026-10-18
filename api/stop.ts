@@ -5,9 +5,9 @@ import { waitUntil } from '@vercel/functions'
 import { isAlertId, MAX_CHUNK_INDEX, parseStopReason } from '../lib/alertModel.js'
 import { finalizeIfReady } from '../lib/alertProcessing.js'
 import { getAlert, updateAlert } from '../lib/alertStore.js'
-import { errorResponse, isAuthorized, json, preflight, readJsonBody } from '../lib/http.js'
+import { errorResponse, isAuthorized, json, preflight, readJsonBody, withCors } from '../lib/http.js'
 
-export async function POST(request: Request): Promise<Response> {
+async function handlePOST(request: Request): Promise<Response> {
   if (!isAuthorized(request)) return errorResponse('Unauthorized', 401)
   const body = await readJsonBody(request)
   if (!body || !isAlertId(body.alertId)) return errorResponse('Invalid alertId', 400)
@@ -26,6 +26,5 @@ export async function POST(request: Request): Promise<Response> {
   return json({ ok: true })
 }
 
-export function OPTIONS(): Response {
-  return preflight()
-}
+export const POST = withCors(handlePOST)
+export const OPTIONS = withCors(preflight)

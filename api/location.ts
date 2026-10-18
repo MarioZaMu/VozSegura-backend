@@ -2,11 +2,11 @@
 // The first position also goes to the contacts as a Telegram map pin.
 import { isAlertId, parseLocation } from '../lib/alertModel.js'
 import { addLocation, claimOnce, getAlert } from '../lib/alertStore.js'
-import { errorResponse, isAuthorized, json, preflight, readJsonBody } from '../lib/http.js'
+import { errorResponse, isAuthorized, json, preflight, readJsonBody, withCors } from '../lib/http.js'
 import { fallbackChatIds } from '../lib/env.js'
 import { sendLocationToAll } from '../lib/telegram.js'
 
-export async function POST(request: Request): Promise<Response> {
+async function handlePOST(request: Request): Promise<Response> {
   if (!isAuthorized(request)) return errorResponse('Unauthorized', 401)
   const body = await readJsonBody(request)
   const fix = parseLocation(body?.location)
@@ -22,6 +22,5 @@ export async function POST(request: Request): Promise<Response> {
   return json({ ok: true })
 }
 
-export function OPTIONS(): Response {
-  return preflight()
-}
+export const POST = withCors(handlePOST)
+export const OPTIONS = withCors(preflight)

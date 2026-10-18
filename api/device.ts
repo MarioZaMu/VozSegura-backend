@@ -5,9 +5,9 @@
 import { isAlertId as isUuid } from '../lib/alertModel.js'
 import { cleanText, MAX_MESSAGE_LENGTH, MAX_NAME_LENGTH } from '../lib/contactModel.js'
 import { ensureDevice, updateDevice } from '../lib/contactStore.js'
-import { errorResponse, isAuthorized, json, preflight, readJsonBody } from '../lib/http.js'
+import { errorResponse, isAuthorized, json, preflight, readJsonBody, withCors } from '../lib/http.js'
 
-export async function GET(request: Request): Promise<Response> {
+async function handleGET(request: Request): Promise<Response> {
   if (!isAuthorized(request)) return errorResponse('Unauthorized', 401)
   const deviceId = new URL(request.url).searchParams.get('deviceId')
   if (!isUuid(deviceId)) return errorResponse('Invalid deviceId', 400)
@@ -15,7 +15,7 @@ export async function GET(request: Request): Promise<Response> {
   return json({ ownerName, message })
 }
 
-export async function POST(request: Request): Promise<Response> {
+async function handlePOST(request: Request): Promise<Response> {
   if (!isAuthorized(request)) return errorResponse('Unauthorized', 401)
   const body = await readJsonBody(request)
   if (!body || !isUuid(body.deviceId)) return errorResponse('Invalid deviceId', 400)
@@ -27,6 +27,6 @@ export async function POST(request: Request): Promise<Response> {
   return json({ ownerName: device.ownerName, message: device.message })
 }
 
-export function OPTIONS(): Response {
-  return preflight()
-}
+export const GET = withCors(handleGET)
+export const POST = withCors(handlePOST)
+export const OPTIONS = withCors(preflight)

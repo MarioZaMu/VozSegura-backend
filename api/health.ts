@@ -1,9 +1,8 @@
-import { json, preflight } from '../lib/http.js'
+import { json, preflight, withCors } from '../lib/http.js'
 
-export function GET(): Response {
+function handleGET(): Response {
   return json({ status: 'ok', service: 'voz-segura-backend', time: new Date().toISOString() })
 }
 
-export function OPTIONS(): Response {
-  return preflight()
-}
+export const GET = withCors(handleGET)
+export const OPTIONS = withCors(preflight)

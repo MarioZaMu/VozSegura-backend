@@ -2,15 +2,35 @@
 import { timingSafeEqual } from 'node:crypto'
 
 // The frontend runs on another origin (its own Vercel project), so every response
-// carries CORS headers. ALLOWED_ORIGIN narrows it in production.
-const allowedOrigin = process.env.ALLOWED_ORIGIN ?? '*'
+// carries CORS headers. ALLOWED_ORIGIN (comma separated) narrows it in production; the
+// Android app's WebView origin is always allowed because its Settings view calls the API.
+const CAPACITOR_ORIGIN = 'https://localhost'
+const allowedOrigins = (process.env.ALLOWED_ORIGIN ?? '*').split(',').map((origin) => origin.trim())
 
 export const corsHeaders: Record<string, string> = {
-  'Access-Control-Allow-Origin': allowedOrigin,
+  'Access-Control-Allow-Origin': allowedOrigins[0],
   'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   'Access-Control-Max-Age': '86400',
   Vary: 'Origin',
+}
+
+/** The origin to echo back: the caller's when it is allowed, else the first configured one. */
+export function corsOrigin(requestOrigin: string | null): string {
+  if (allowedOrigins.includes('*')) return '*'
+  if (requestOrigin && (allowedOrigins.includes(requestOrigin) || requestOrigin === CAPACITOR_ORIGIN)) return requestOrigin
+  return allowedOrigins[0]
+}
+
+type Handler = (request: Request) => Response | Promise<Response>
+
+/** Wraps an endpoint so its response allows the calling origin (see corsOrigin). */
+export function withCors(handler: Handler): Handler {
+  return async (request) => {
+    const response = await handler(request)
+    response.headers.set('Access-Control-Allow-Origin', corsOrigin(request.headers.get('origin')))
+    return response
+  }
 }
 
 export function json(data: unknown, status = 200): Response {

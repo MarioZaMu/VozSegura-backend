@@ -31,7 +31,7 @@ npm run lint    # oxlint
 ## Structure
 
 ```
-api/        one file per endpoint; export GET/POST/OPTIONS Web handlers (Request → Response)
+api/        one file per endpoint; `export const GET = withCors(handleGET)` style Web handlers
 lib/        shared code (http/CORS helpers, storage, telegram, ai…)
 scripts/    dev-server.ts: runs api/ locally, /api/<name> → api/<name>.ts
 ```
@@ -83,7 +83,10 @@ Next (phase 9+): contact view in the frontend, cancel / false alarm (phase 10).
 - **Storage:** Upstash Redis (Vercel Marketplace, free) for alert JSON; Vercel Blob (free
   on Hobby) for audio clips. Vercel limits request bodies to 4.5 MB → short audio clips.
 - **AI:** Groq — Whisper for transcription, an LLM for the short summary in Spanish.
-- **CORS:** frontend is a separate Vercel project; `ALLOWED_ORIGIN` restricts it.
+- **CORS:** frontend is a separate Vercel project; `ALLOWED_ORIGIN` (comma separated)
+  restricts it. Every handler is exported through `withCors` (lib/http.ts), which echoes
+  the caller's origin when allowed. The Android WebView origin `https://localhost` is
+  always allowed: the app's Settings view calls `/api/device` and `/api/contacts`.
 - **Deploy:** Vercel GitHub integration (push to `main` = production). The Vercel CLI is
   linked (`.vercel/`, git-ignored) and used for env vars and logs
   (`npx vercel inspect <url> --logs`). If npx fails with a `luxon` module error, delete

@@ -6,10 +6,10 @@ import { alertLink, formatAlertMessage, isAlertId, newAlertRecord, parseCaptureK
 import { addLocation, claimOnce, createAlert, getAlert, updateAlert } from '../lib/alertStore.js'
 import { confirmedChatIds, getDevice } from '../lib/contactStore.js'
 import { fallbackChatIds, frontendUrl } from '../lib/env.js'
-import { errorResponse, isAuthorized, json, preflight, readJsonBody } from '../lib/http.js'
+import { errorResponse, isAuthorized, json, preflight, readJsonBody, withCors } from '../lib/http.js'
 import { sendLocationToAll, sendMessageToAll } from '../lib/telegram.js'
 
-export async function POST(request: Request): Promise<Response> {
+async function handlePOST(request: Request): Promise<Response> {
   if (!isAuthorized(request)) return errorResponse('Unauthorized', 401)
   const body = await readJsonBody(request)
   if (!body || !isAlertId(body.alertId)) return errorResponse('Invalid alertId', 400)
@@ -56,6 +56,5 @@ export async function POST(request: Request): Promise<Response> {
   return json({ alertId, link, notified, recipients: recipients.length }, created ? 201 : 200)
 }
 
-export function OPTIONS(): Response {
-  return preflight()
-}
+export const POST = withCors(handlePOST)
+export const OPTIONS = withCors(preflight)

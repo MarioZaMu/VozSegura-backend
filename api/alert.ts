@@ -2,9 +2,9 @@
 // Public on purpose: the alert id is a random UUID that only reaches the contacts.
 import { isAlertId } from '../lib/alertModel.js'
 import { getAlert, getChunks, getLocations } from '../lib/alertStore.js'
-import { errorResponse, json, preflight } from '../lib/http.js'
+import { errorResponse, json, preflight, withCors } from '../lib/http.js'
 
-export async function GET(request: Request): Promise<Response> {
+async function handleGET(request: Request): Promise<Response> {
   const id = new URL(request.url).searchParams.get('id')
   if (!isAlertId(id)) return errorResponse('Invalid id', 400)
 
@@ -32,6 +32,5 @@ export async function GET(request: Request): Promise<Response> {
   })
 }
 
-export function OPTIONS(): Response {
-  return preflight()
-}
+export const GET = withCors(handleGET)
+export const OPTIONS = withCors(preflight)
