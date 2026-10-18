@@ -40,13 +40,26 @@ ESM with `module: nodenext`: relative imports must end in `.js` (e.g. `'../lib/h
 
 ## Endpoints
 
-| Method | Path          | Status  | Purpose      |
-| ------ | ------------- | ------- | ------------ |
-| GET    | `/api/health` | ✅      | Health check |
+Write endpoints need `Authorization: Bearer <ALERT_API_TOKEN>`. Ids are UUIDs (validated).
 
-Planned for phase 7: `POST /api/alerts` (location → store + Telegram + link),
-`POST /api/alerts/audio` (audio → transcription + summary), `GET /api/alerts/:id`
-(contact view), cancel endpoint (false alarm), Telegram webhook for contact subscription.
+| Method | Path | Body / query | Purpose |
+| ------ | ---- | ------------ | ------- |
+| GET  | `/api/health` | — | Health check |
+| POST | `/api/alerts` | `{ alertId, startedAt?, captureKind?, location? }` | Creates the alert (idempotent) and sends the Telegram alert at once; storage failure never blocks the message |
+| POST | `/api/location` | `{ alertId, location }` | Adds a position; the first one also goes as a Telegram map pin |
+| POST | `/api/audio?alertId&index&durationMs` | raw audio (`audio/mp4`, `audio/webm`, `audio/wav`) | Stores the chunk in private Blob, then (waitUntil) Whisper → summary → final message |
+| GET  | `/api/audio?alertId&index` | — | Streams a chunk (contact view) |
+| POST | `/api/stop` | `{ alertId, reason?, totalChunks }` | Closes the alert; the final summary is sent once every announced chunk is processed |
+| GET  | `/api/alert?id` | — | Public contact view data: status, positions, chunks with transcripts, summary |
+
+Code: `lib/alertModel.ts` (types, validation, Spanish Telegram text, unit tested),
+`lib/alertStore.ts` (Redis: alert hash `alert:{id}`, `:locations` list, `:chunks` hash,
+`:flags` one-time claims; 30-day TTL), `lib/telegram.ts`, `lib/ai.ts` (Groq
+`whisper-large-v3-turbo`, summary `openai/gpt-oss-120b` with a strict prompt that ignores
+Whisper's silence hallucinations like "suscríbete al canal"), `lib/alertProcessing.ts`.
+
+Next (phase 9+): contact view in the frontend, per-user contacts via the Telegram
+`/start` flow (phase 7), cancel / false alarm (phase 10).
 
 ## Decisions
 
@@ -60,4 +73,19 @@ Planned for phase 7: `POST /api/alerts` (location → store + Telegram + link),
   on Hobby) for audio clips. Vercel limits request bodies to 4.5 MB → short audio clips.
 - **AI:** Groq — Whisper for transcription, an LLM for the short summary in Spanish.
 - **CORS:** frontend is a separate Vercel project; `ALLOWED_ORIGIN` restricts it.
-- **No Vercel CLI:** deploy through Vercel's GitHub import; local runs use the dev server.
+- **Deploy:** Vercel GitHub integration (push to `main` = production). The Vercel CLI is
+  linked (`.vercel/`, git-ignored) and used for env vars and logs
+  (`npx vercel inspect <url> --logs`). If npx fails with a `luxon` module error, delete
+  the corrupted `%LOCALAPPDATA%
+pm-cache\_npx\<hash>` folder.
+- **Env files:** `npx vercel env pull .env.local` brings Redis, Blob store id, URLs and a
+  12 h `VERCEL_OIDC_TOKEN`. Secrets are "Sensitive" in Vercel and cannot be pulled, so they
+  live in `.env` (loaded after `.env.local`): `TELEGRAM_BOT_TOKEN`, `DEFAULT_CHAT_IDS`,
+  `GROQ_API_KEY`, `ALERT_API_TOKEN`, `ALLOWED_ORIGIN=http://localhost:5173`.
+- **Blob uses OIDC** (no `BLOB_READ_WRITE_TOKEN`): `BLOB_STORE_ID` + the function's OIDC
+  token. The store's connection does not allow the Development environment and the CLI
+  only issues development tokens, so **audio uploads fail locally**; test audio against
+  production (or a deployment). Everything else works with `npm run dev`.
+- **Contacts:** `DEFAULT_CHAT_IDS` (comma separated) until phase 7.
+- **Token in the app:** `ALERT_API_TOKEN` ships inside the frontend bundle/APK, so it
+  only stops casual abuse. Per-device keys are a later improvement.
