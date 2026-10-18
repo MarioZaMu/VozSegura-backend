@@ -17,6 +17,14 @@ bloquea ni retrasa la alerta.
 El frontend (PWA con las vistas Reloj, Configuración y Contacto) está en
 [VozSegura-Frontend](https://github.com/MarioZaMu/VozSegura-Frontend).
 
+## En línea
+
+- **App (PC o celular):** [voz-segura-frontend.vercel.app](https://voz-segura-frontend.vercel.app) · demo de la vista
+  Contacto: [voz-segura-frontend.vercel.app/alerta/demo](https://voz-segura-frontend.vercel.app/alerta/demo)
+- **API:** [vozsegura-backend.vercel.app/api/health](https://vozsegura-backend.vercel.app/api/health)
+- **Bot de Telegram:** [@VSegurabot](https://t.me/VSegurabot) (los contactos se suscriben
+  con el enlace de invitación que genera la app)
+
 ## Endpoints
 
 | Método | Ruta | Descripción |
@@ -26,6 +34,7 @@ El frontend (PWA con las vistas Reloj, Configuración y Contacto) está en
 | POST | `/api/location` | Agrega una posición |
 | POST/GET | `/api/audio` | Sube / reproduce un fragmento de audio |
 | POST | `/api/stop` | Cierra la alerta; al terminar la IA se envía el resumen |
+| POST | `/api/resolve` | La persona avisa "estoy bien" o "falsa alarma"; se informa una vez a sus contactos |
 | GET | `/api/alert?id` | Datos públicos de la alerta (vista Contacto) |
 | GET/POST | `/api/device` | Nombre y mensaje personal del dispositivo |
 | GET/POST/PUT/DELETE | `/api/contacts` | Contactos de confianza e invitaciones de Telegram |
