@@ -7,6 +7,8 @@ export type AlertStatus = 'active' | 'stopped'
 export type StopReason = 'user' | 'max-duration' | 'error'
 export type SummaryStatus = 'waiting' | 'generating' | 'ready' | 'error'
 export type TranscriptStatus = 'pending' | 'done' | 'error'
+/** Set by the owner afterwards: 'safe' = "estoy bien", 'false-alarm' = activated by mistake. */
+export type Resolution = 'safe' | 'false-alarm'
 
 export type AlertRecord = {
   id: string
@@ -29,6 +31,9 @@ export type AlertRecord = {
   summaryChunks: number
   summaryStatus: SummaryStatus
   summaryUpdatedAt: number | null
+  /** Missing on alerts created before phase 10 (read as null). */
+  resolution?: Resolution | null
+  resolvedAt?: number | null
 }
 
 export type ChunkRecord = {
@@ -45,6 +50,7 @@ export type ChunkRecord = {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const CAPTURE_KINDS: CaptureKind[] = ['demo', 'web', 'native']
 const STOP_REASONS: StopReason[] = ['user', 'max-duration', 'error']
+const RESOLUTIONS: Resolution[] = ['safe', 'false-alarm']
 
 export const MAX_CHUNK_INDEX = 999
 export const MAX_AUDIO_BYTES = 4 * 1024 * 1024 // Vercel rejects bodies over 4.5 MB
@@ -59,6 +65,10 @@ export function parseCaptureKind(value: unknown): CaptureKind {
 
 export function parseStopReason(value: unknown): StopReason {
   return STOP_REASONS.includes(value as StopReason) ? (value as StopReason) : 'user'
+}
+
+export function parseResolution(value: unknown): Resolution | null {
+  return RESOLUTIONS.includes(value as Resolution) ? (value as Resolution) : null
 }
 
 function isFiniteNumber(value: unknown): value is number {
@@ -109,6 +119,8 @@ export function newAlertRecord(
     summaryChunks: 0,
     summaryStatus: 'waiting',
     summaryUpdatedAt: null,
+    resolution: null,
+    resolvedAt: null,
   }
 }
 
@@ -174,11 +186,33 @@ export function formatAlertMessage(options: {
   return lines.join('\n')
 }
 
-export function formatFinalMessage(options: { link: string; summary: string | null; hadAudio: boolean }): string {
+const stopLines: Record<StopReason, string> = {
+  user: '✅ <b>La alerta se detuvo</b> desde el reloj.',
+  'max-duration': '✅ <b>La grabación de la alerta terminó</b> (límite de 5 minutos).',
+  error: '✅ <b>La grabación de la alerta terminó</b> (se interrumpió en el teléfono).',
+}
+
+export function formatFinalMessage(options: {
+  link: string
+  summary: string | null
+  hadAudio: boolean
+  stopReason?: StopReason | null
+}): string {
   const body = options.summary
     ? `📝 <b>Resumen del audio</b> (generado por IA, puede tener errores):\n${escapeHtml(options.summary)}`
     : options.hadAudio
       ? '📝 No fue posible generar el resumen del audio. Puedes escucharlo en el enlace.'
       : '🎙️ No se pudo grabar audio en esta alerta.'
-  return ['✅ <b>La grabación de la alerta terminó.</b>', '', body, '', `🔴 <a href="${options.link}">Ver la alerta</a>`].join('\n')
+  const title = options.stopReason ? stopLines[options.stopReason] : '✅ <b>La grabación de la alerta terminó.</b>'
+  return [title, '', body, '', `🔴 <a href="${options.link}">Ver la alerta</a>`].join('\n')
+}
+
+/** Sent when the owner marks the alert as "estoy bien" or as a false alarm. */
+export function formatResolutionMessage(options: { resolution: Resolution; ownerName?: string; link: string }): string {
+  const who = options.ownerName ? `<b>${escapeHtml(options.ownerName)}</b>` : 'La persona que activó la alerta'
+  const text =
+    options.resolution === 'safe'
+      ? `💚 ${who} avisó que <b>está bien</b>. Gracias por estar pendiente.`
+      : `ℹ️ <b>Falsa alarma:</b> ${who} activó la alerta por error. Todo está bien, no hace falta hacer nada.`
+  return [text, '', `<a href="${options.link}">Ver la alerta</a>`].join('\n')
 }

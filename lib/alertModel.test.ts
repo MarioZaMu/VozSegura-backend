@@ -4,6 +4,8 @@ import {
   escapeHtml,
   formatAlertMessage,
   formatFinalMessage,
+  formatResolutionMessage,
+  parseResolution,
   isAlertId,
   isReadyToFinalize,
   newAlertRecord,
@@ -81,5 +83,20 @@ describe('telegram text', () => {
     expect(escapeHtml('<b>&')).toBe('&lt;b&gt;&amp;')
     expect(formatFinalMessage({ link: 'L', summary: 'Grita <ayuda>', hadAudio: true })).toContain('Grita &lt;ayuda&gt;')
     expect(formatFinalMessage({ link: 'L', summary: null, hadAudio: false })).toContain('No se pudo grabar audio')
+    expect(formatFinalMessage({ link: 'L', summary: 'x', hadAudio: true, stopReason: 'user' })).toContain('se detuvo')
+    expect(formatFinalMessage({ link: 'L', summary: 'x', hadAudio: true, stopReason: 'max-duration' })).toContain('5 minutos')
+  })
+})
+
+describe('resolution', () => {
+  it('accepts only known resolutions', () => {
+    expect(parseResolution('safe')).toBe('safe')
+    expect(parseResolution('false-alarm')).toBe('false-alarm')
+    expect(parseResolution('cancel')).toBeNull()
+  })
+
+  it('tells the contacts the owner is safe or it was a false alarm', () => {
+    expect(formatResolutionMessage({ resolution: 'safe', ownerName: 'Ana <3', link: 'L' })).toContain('<b>Ana &lt;3</b> avisó que <b>está bien</b>')
+    expect(formatResolutionMessage({ resolution: 'false-alarm', link: 'L' })).toContain('Falsa alarma')
   })
 })

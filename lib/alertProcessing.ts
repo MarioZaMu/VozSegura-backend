@@ -48,7 +48,12 @@ export async function finalizeIfReady(alertId: string): Promise<void> {
   if (chunks.length === 0) await updateAlert(alertId, { summaryStatus: 'error' })
   await sendMessageToAll(
     alert.recipients?.length ? alert.recipients : fallbackChatIds(),
-    formatFinalMessage({ link: alertLink(frontendUrl(), alertId), summary: alert.summary, hadAudio: chunks.length > 0 }),
+    formatFinalMessage({
+      link: alertLink(frontendUrl(), alertId),
+      summary: alert.summary,
+      hadAudio: chunks.length > 0,
+      stopReason: alert.stopReason,
+    }),
   )
 }
 
