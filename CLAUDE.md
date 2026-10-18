@@ -9,7 +9,7 @@ summarizes the audio with AI (Groq).
 ## Working rules
 
 - **Language:** all code, comments and commits in English. User-facing text (Telegram
-  messages, AI summaries) in Spanish.
+  messages, AI summaries) in the owner's language: Spanish or English (phase 12).
 - Work in phases; explain before, report after and wait for approval. Each phase ends
   with `npm run typecheck` + `npm run lint` + `npm test` clean and several small commits. Never push
   unless asked.
@@ -45,7 +45,7 @@ Write endpoints need `Authorization: Bearer <ALERT_API_TOKEN>`. Ids are UUIDs (v
 | Method | Path | Body / query | Purpose |
 | ------ | ---- | ------------ | ------- |
 | GET  | `/api/health` | — | Health check |
-| POST | `/api/alerts` | `{ alertId, deviceId?, startedAt?, captureKind?, location? }` | Creates the alert (idempotent) and sends the Telegram alert at once to the device's confirmed contacts (fallback `DEFAULT_CHAT_IDS`); storage failure never blocks the message |
+| POST | `/api/alerts` | `{ alertId, deviceId?, startedAt?, captureKind?, location?, language? }` | Creates the alert (idempotent) and sends the Telegram alert at once to the device's confirmed contacts (fallback `DEFAULT_CHAT_IDS`); storage failure never blocks the message |
 | POST | `/api/location` | `{ alertId, location }` | Adds a position; the first one also goes as a Telegram map pin |
 | POST | `/api/audio?alertId&index&durationMs` | raw audio (`audio/mp4`, `audio/webm`, `audio/wav`) | Stores the chunk in private Blob, then (waitUntil) Whisper → summary → final message |
 | GET  | `/api/audio?alertId&index` | — | Streams a chunk (contact view) |
@@ -59,7 +59,7 @@ Write endpoints need `Authorization: Bearer <ALERT_API_TOKEN>`. Ids are UUIDs (v
 | DELETE | `/api/contacts?deviceId&contactId` | — | Removes a contact |
 | POST | `/api/telegram` | Telegram update | Bot webhook, checked with `X-Telegram-Bot-Api-Secret-Token`; always 200 |
 
-Code: `lib/alertModel.ts` (types, validation, Spanish Telegram text, unit tested),
+Code: `lib/alertModel.ts` (types, validation, Spanish/English Telegram text, unit tested),
 `lib/alertStore.ts` (Redis: alert hash `alert:{id}`, `:locations` list, `:chunks` hash,
 `:flags` one-time claims; 30-day TTL), `lib/telegram.ts`, `lib/ai.ts` (Groq
 `whisper-large-v3-turbo`, summary `openai/gpt-oss-120b` with a strict prompt that ignores
@@ -83,7 +83,14 @@ Next: cancel / false alarm (phase 10).
   WhatsApp Business) discarded: paid or needs approval.
 - **Storage:** Upstash Redis (Vercel Marketplace, free) for alert JSON; Vercel Blob (free
   on Hobby) for audio clips. Vercel limits request bodies to 4.5 MB → short audio clips.
-- **AI:** Groq — Whisper for transcription, an LLM for the short summary in Spanish.
+- **AI:** Groq — Whisper for transcription, an LLM for the short summary in the owner's
+  language.
+- **Language (phase 12):** `POST /api/alerts` takes `language` ('es' | 'en', anything else
+  → 'es'), stored on the alert (first write wins; older alerts without it read as 'es') and
+  returned by `GET /api/alert`. It picks the Telegram texts (`texts` in alertModel.ts, kept in
+  sync with the frontend's `DemoTelegramPreview`), the resolution message, the Whisper
+  `language` hint and the summary prompt (`SUMMARY_PROMPTS` in ai.ts). Times stay 24 h in
+  America/Bogota for both languages.
 - **CORS:** frontend is a separate Vercel project; `ALLOWED_ORIGIN` (comma separated)
   restricts it. Every handler is exported through `withCors` (lib/http.ts), which echoes
   the caller's origin when allowed. The Android WebView origin `https://localhost` is
