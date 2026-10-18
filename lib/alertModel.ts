@@ -10,6 +10,10 @@ export type TranscriptStatus = 'pending' | 'done' | 'error'
 
 export type AlertRecord = {
   id: string
+  /** Phone/browser that raised it (null for alerts from before devices existed). */
+  deviceId: string | null
+  /** Telegram chats chosen when the alert started; later messages go to the same ones. */
+  recipients: string[]
   status: AlertStatus
   captureKind: CaptureKind
   startedAt: number
@@ -80,9 +84,18 @@ export function parseChunkIndex(value: string | null): number | null {
   return index <= MAX_CHUNK_INDEX ? index : null
 }
 
-export function newAlertRecord(id: string, captureKind: CaptureKind, startedAt: number, now: number): AlertRecord {
+export function newAlertRecord(
+  id: string,
+  captureKind: CaptureKind,
+  startedAt: number,
+  now: number,
+  deviceId: string | null = null,
+  recipients: string[] = [],
+): AlertRecord {
   return {
     id,
+    deviceId,
+    recipients,
     status: 'active',
     captureKind,
     startedAt,
@@ -140,10 +153,18 @@ export function alertLink(frontendUrl: string, alertId: string): string {
   return `${frontendUrl.replace(/\/+$/, '')}/alerta/${alertId}`
 }
 
-export function formatAlertMessage(options: { link: string; startedAt: number; fix: LocationFix | null }): string {
+export function formatAlertMessage(options: {
+  link: string
+  startedAt: number
+  fix: LocationFix | null
+  ownerName?: string
+  message?: string
+}): string {
+  const who = options.ownerName ? `<b>${escapeHtml(options.ownerName)}</b>` : 'Una persona que confía en ti'
   const lines = [
     '🚨 <b>Alerta de Voz Segura</b>',
-    `Una persona que confía en ti activó una alerta silenciosa a las ${timeFormat.format(options.startedAt)}.`,
+    `${who} activó una alerta silenciosa a las ${timeFormat.format(options.startedAt)}.`,
+    ...(options.message ? ['', `💬 “${escapeHtml(options.message)}”`] : []),
     '',
     options.fix
       ? `📍 <a href="${mapsUrl(options.fix)}">Ver ubicación</a> (±${Math.round(options.fix.accuracy)} m)`

@@ -6,8 +6,11 @@ export function requireEnv(name: string): string {
   return value
 }
 
-/** Telegram chats notified for every alert (comma separated). Phase 7 adds per-user contacts. */
-export function contactChatIds(): string[] {
+/**
+ * Fallback chats (comma separated) for devices with no confirmed contact yet, so a demo or
+ * a fresh install still warns someone. Real users get their own contacts (phase 7).
+ */
+export function fallbackChatIds(): string[] {
   return (process.env.DEFAULT_CHAT_IDS ?? '')
     .split(',')
     .map((id) => id.trim())

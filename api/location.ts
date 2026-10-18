@@ -3,7 +3,8 @@
 import { isAlertId, parseLocation } from '../lib/alertModel.js'
 import { addLocation, claimOnce, getAlert } from '../lib/alertStore.js'
 import { errorResponse, isAuthorized, json, preflight, readJsonBody } from '../lib/http.js'
-import { sendLocationToContacts } from '../lib/telegram.js'
+import { fallbackChatIds } from '../lib/env.js'
+import { sendLocationToAll } from '../lib/telegram.js'
 
 export async function POST(request: Request): Promise<Response> {
   if (!isAuthorized(request)) return errorResponse('Unauthorized', 401)
@@ -15,7 +16,9 @@ export async function POST(request: Request): Promise<Response> {
   if (!alert) return errorResponse('Alert not found', 404)
 
   await addLocation(alert.id, fix)
-  if (await claimOnce(alert.id, 'firstLocation')) await sendLocationToContacts(fix)
+  if (await claimOnce(alert.id, 'firstLocation')) {
+    await sendLocationToAll(alert.recipients?.length ? alert.recipients : fallbackChatIds(), fix)
+  }
   return json({ ok: true })
 }
 

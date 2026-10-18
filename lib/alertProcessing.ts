@@ -4,8 +4,8 @@ import { get } from '@vercel/blob'
 import { alertLink, formatFinalMessage, isReadyToFinalize, orderedTranscript, processedChunkCount } from './alertModel.js'
 import { claimOnce, getAlert, getChunk, getChunks, saveChunk, saveSummaryIfNewer, updateAlert } from './alertStore.js'
 import { summarize, transcribe } from './ai.js'
-import { frontendUrl } from './env.js'
-import { sendMessageToContacts } from './telegram.js'
+import { fallbackChatIds, frontendUrl } from './env.js'
+import { sendMessageToAll } from './telegram.js'
 
 export async function readAudio(pathname: string): Promise<Blob | null> {
   const result = await get(pathname, { access: 'private' })
@@ -46,7 +46,8 @@ export async function finalizeIfReady(alertId: string): Promise<void> {
   if (!alert || !isReadyToFinalize(alert, chunks)) return
   if (!(await claimOnce(alertId, 'finalMessage'))) return
   if (chunks.length === 0) await updateAlert(alertId, { summaryStatus: 'error' })
-  await sendMessageToContacts(
+  await sendMessageToAll(
+    alert.recipients?.length ? alert.recipients : fallbackChatIds(),
     formatFinalMessage({ link: alertLink(frontendUrl(), alertId), summary: alert.summary, hadAudio: chunks.length > 0 }),
   )
 }
