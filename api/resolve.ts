@@ -1,7 +1,7 @@
 // POST /api/resolve — the owner says how the alert ended. Body: { alertId, deviceId, resolution }
 // with resolution 'safe' ("estoy bien") or 'false-alarm'. Tells the same contacts once, by
 // Telegram, and shows it in the contact view. Only the device that raised the alert may do it.
-import { alertLink, formatResolutionMessage, isAlertId, parseResolution } from '../lib/alertModel.js'
+import { alertLink, formatResolutionMessage, isAlertId, parseLanguage, parseResolution } from '../lib/alertModel.js'
 import { claimOnce, getAlert, updateAlert } from '../lib/alertStore.js'
 import { getDevice } from '../lib/contactStore.js'
 import { fallbackChatIds, frontendUrl } from '../lib/env.js'
@@ -29,7 +29,12 @@ async function handlePOST(request: Request): Promise<Response> {
   const device = alert.deviceId ? await getDevice(alert.deviceId).catch(() => null) : null
   await sendMessageToAll(
     alert.recipients?.length ? alert.recipients : fallbackChatIds(),
-    formatResolutionMessage({ resolution, ownerName: device?.ownerName, link: alertLink(frontendUrl(), alert.id) }),
+    formatResolutionMessage({
+      resolution,
+      ownerName: device?.ownerName,
+      link: alertLink(frontendUrl(), alert.id),
+      language: parseLanguage(alert.language),
+    }),
   )
   return json({ resolution, resolvedAt })
 }

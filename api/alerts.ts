@@ -2,7 +2,15 @@
 // Body: { alertId, deviceId?, startedAt?, captureKind?, location? }. Notifies the device's
 // confirmed contacts at once (fallback chats if it has none); storage problems never stop
 // the Telegram message.
-import { alertLink, formatAlertMessage, isAlertId, newAlertRecord, parseCaptureKind, parseLocation } from '../lib/alertModel.js'
+import {
+  alertLink,
+  formatAlertMessage,
+  isAlertId,
+  newAlertRecord,
+  parseCaptureKind,
+  parseLanguage,
+  parseLocation,
+} from '../lib/alertModel.js'
 import { addLocation, claimOnce, createAlert, getAlert, updateAlert } from '../lib/alertStore.js'
 import { confirmedChatIds, getDevice } from '../lib/contactStore.js'
 import { fallbackChatIds, frontendUrl } from '../lib/env.js'
@@ -26,19 +34,21 @@ async function handlePOST(request: Request): Promise<Response> {
   let recipients = fallbackChatIds()
   let ownerName = ''
   let message = ''
+  let language = parseLanguage(body.language)
   try {
     const existing = await getAlert(alertId)
     if (existing) {
       // A retry: keep the recipients chosen the first time.
       alreadyNotified = existing.notified
       if (existing.recipients?.length) recipients = existing.recipients
+      language = parseLanguage(existing.language ?? language)
     } else if (deviceId) {
       const [contacts, device] = await Promise.all([confirmedChatIds(deviceId), getDevice(deviceId)])
       if (contacts.length > 0) recipients = contacts
       ownerName = device?.ownerName ?? ''
       message = device?.message ?? ''
     }
-    created = await createAlert(newAlertRecord(alertId, parseCaptureKind(body.captureKind), startedAt, now, deviceId, recipients))
+    created = await createAlert(newAlertRecord(alertId, parseCaptureKind(body.captureKind), startedAt, now, deviceId, recipients, language))
     if (fix) await addLocation(alertId, fix)
   } catch (error) {
     console.error('Alert storage failed, notifying anyway', error)
@@ -46,7 +56,7 @@ async function handlePOST(request: Request): Promise<Response> {
 
   let notified = alreadyNotified
   if (!alreadyNotified) {
-    notified = (await sendMessageToAll(recipients, formatAlertMessage({ link, startedAt, fix, ownerName, message }))) > 0
+    notified = (await sendMessageToAll(recipients, formatAlertMessage({ link, startedAt, fix, ownerName, message, language }))) > 0
     if (notified) await updateAlert(alertId, { notified: true }).catch(console.error)
   }
   if (fix && (await claimOnce(alertId, 'firstLocation').catch(() => true))) {

@@ -1,6 +1,6 @@
 // GET /api/alert?id=… — what the trusted contact sees (phase 9 view polls it).
 // Public on purpose: the alert id is a random UUID that only reaches the contacts.
-import { isAlertId } from '../lib/alertModel.js'
+import { isAlertId, parseLanguage } from '../lib/alertModel.js'
 import { getAlert, getChunks, getLocations } from '../lib/alertStore.js'
 import { getDevice } from '../lib/contactStore.js'
 import { errorResponse, json, preflight, withCors } from '../lib/http.js'
@@ -28,6 +28,7 @@ async function handleGET(request: Request): Promise<Response> {
     summaryStatus: alert.summaryStatus,
     summaryUpdatedAt: alert.summaryUpdatedAt,
     resolution: alert.resolution ?? null,
+    language: parseLanguage(alert.language),
     resolvedAt: alert.resolvedAt ?? null,
     chunks: chunks.map(({ index, durationMs, transcript, transcriptStatus }) => ({
       index,
